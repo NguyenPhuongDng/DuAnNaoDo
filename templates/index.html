@@ -3,415 +3,372 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Traffic Monitoring System</title>
+    <title>Hệ Thống Giám Sát Giao Thông</title>
+    <!-- Tải Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        /* CSS tùy chỉnh */
+        .roi-box {
+            -webkit-user-select: none; /* Ngăn chọn text khi kéo */
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
         }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            padding: 30px;
-            max-width: 1200px;
-            width: 100%;
-        }
-
-        h1 {
-            text-align: center;
-            color: #333;
-            margin-bottom: 10px;
-            font-size: 2em;
-        }
-
-        .subtitle {
-            text-align: center;
-            color: #666;
-            margin-bottom: 30px;
-            font-size: 0.9em;
-        }
-
-        .main-content {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-        }
-
-        .video-section {
-            flex: 1;
-            min-width: 300px;
-            position: relative;
-        }
-
-        #video-container {
-            position: relative;
-            width: 800px;
-            height: 600px;
-            max-width: 100%;
-            border: 3px solid #667eea;
-            border-radius: 10px;
-            overflow: visible;
-            background: #000;
-            margin: 0 auto;
-        }
-
+        /* Giữ cho video feed không bị kéo thả */
         #video-feed {
-            width: 100%;
-            height: 100%;
-            display: block;
-            object-fit: contain;
-            position: relative;
-            z-index: 1;
+            pointer-events: none;
         }
 
-        .zone-editor {
-            position: absolute;
-            top: 0;
-            left: 0;
+        /* Đảm bảo container 800x600 giữ đúng tỷ lệ nhưng có thể co lại trên màn hình nhỏ */
+        /* Tuy nhiên, logic JS hiện tại đang dựa trên 800x600 cố định */
+        /* Chúng ta sẽ giữ 800x600 và cho phép cuộn ngang trên di động */
+        #video-container {
             width: 800px;
             height: 600px;
-            pointer-events: auto;
-            z-index: 10;
-        }
-
-        .zone {
-            position: absolute;
-            border: 3px solid;
-            cursor: move;
-            opacity: 0.6;
-            transition: opacity 0.3s;
-        }
-
-        .zone:hover {
-            opacity: 0.8;
-        }
-
-        .zone-label {
-            position: absolute;
-            top: -25px;
-            left: 5px;
-            font-weight: bold;
-            font-size: 14px;
-            color: white;
-            background: rgba(0,0,0,0.7);
-            padding: 2px 8px;
-            border-radius: 5px;
-        }
-
-        .resize-handle {
-            position: absolute;
-            width: 10px;
-            height: 10px;
-            background: white;
-            border: 2px solid #333;
-            border-radius: 50%;
-            right: -5px;
-            bottom: -5px;
-            cursor: nwse-resize;
-            pointer-events: auto;
-        }
-
-        .controls {
-            margin-top: 20px;
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        button {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s;
-            color: white;
-        }
-
-        .btn-save {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-
-        .btn-save:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn-reset {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        }
-
-        .btn-reset:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(245, 87, 108, 0.4);
-        }
-
-        .stats-panel {
-            flex: 0 0 300px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 15px;
-            padding: 25px;
-            color: white;
-        }
-
-        .stats-panel h2 {
-            margin-bottom: 20px;
-            font-size: 1.5em;
-            text-align: center;
-        }
-
-        .stat-item {
-            background: rgba(255,255,255,0.2);
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 15px;
-            backdrop-filter: blur(10px);
-        }
-
-        .stat-item h3 {
-            font-size: 1.1em;
-            margin-bottom: 5px;
-        }
-
-        .stat-count {
-            font-size: 2em;
-            font-weight: bold;
-        }
-
-        .alert {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 20px 30px;
-            border-radius: 10px;
-            font-weight: bold;
-            z-index: 1000;
-            animation: slideIn 0.5s;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
-        }
-
-        .alert-success {
-            background: #4CAF50;
-            color: white;
-        }
-
-        .alert-danger {
-            background: #f44336;
-            color: white;
-        }
-
-        @keyframes slideIn {
-            from {
-                transform: translateX(400px);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        .info-box {
-            background: #e3f2fd;
-            border-left: 4px solid #2196F3;
-            padding: 15px;
-            border-radius: 5px;
-            margin-top: 20px;
-        }
-
-        .info-box p {
-            margin: 5px 0;
-            color: #1976D2;
-            font-size: 0.9em;
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h1>🚦 Traffic Monitoring System</h1>
-        <p class="subtitle">Kéo và thay đổi kích thước các vùng ROI - Hệ thống phát hiện tai nạn tự động</p>
-        
-        <div class="main-content">
-            <div class="video-section">
-                <div id="video-container">
-                    <img id="video-feed" src="/video_feed" alt="Video Feed">
-                    <div class="zone-editor" id="zone-editor"></div>
+<body class="bg-gray-900 text-white min-h-screen font-sans p-4 sm:p-8">
+
+    <div class="max-w-screen-xl mx-auto"> <!-- Container rộng hơn -->
+        <h1 class="text-3xl font-bold text-center mb-6">Hệ Thống Giám Sát Giao Thông</h1>
+
+        <!-- Wrapper cho nội dung chính (Video và Thống kê) -->
+        <div class="flex flex-col lg:flex-row gap-6">
+
+            <!-- Cột 1: Video và ROIs -->
+            <!-- Container này PHẢI là 800x600 vì logic JS (offsetLeft/Top) và
+                 tọa độ zones.json được tính toán dựa trên kích thước cố định này -->
+            <div class="mx-auto lg:mx-0 shrink-0">
+                <div id="video-container" class="relative bg-black rounded-lg shadow-xl overflow-hidden">
+                    
+                    <!-- Video Stream từ Flask -->
+                    <img id="video-feed" src="/video_feed" alt="Video Stream" class="w-full h-full">
+
+                    <!-- Các vùng ROI (Regions of Interest) -->
+                    
+                    <div id="roi-North" class="roi-box absolute border-4 box-border cursor-move">
+                        <span class="roi-label absolute top-0 left-1 px-2 py-0.5 text-sm font-bold text-white bg-black/50 rounded-br-lg">North</span>
+                        <div class="resize-handle absolute bottom-0 right-0 w-4 h-4 bg-white/70 border-2 border-black rounded-full cursor-se-resize -mr-1 -mb-1"></div>
+                    </div>
+
+                    <div id="roi-South" class="roi-box absolute border-4 box-border cursor-move">
+                        <span class="roi-label absolute top-0 left-1 px-2 py-0.5 text-sm font-bold text-white bg-black/50 rounded-br-lg">South</span>
+                        <div class="resize-handle absolute bottom-0 right-0 w-4 h-4 bg-white/70 border-2 border-black rounded-full cursor-se-resize -mr-1 -mb-1"></div>
+                    </div>
+
+                    <div id="roi-East" class->="roi-box absolute border-4 box-border cursor-move">
+                        <span class="roi-label absolute top-0 left-1 px-2 py-0.5 text-sm font-bold text-white bg-black/50 rounded-br-lg">East</span>
+                        <div class="resize-handle absolute bottom-0 right-0 w-4 h-4 bg-white/70 border-2 border-black rounded-full cursor-se-resize -mr-1 -mb-1"></div>
+                    </div>
+
+                    <div id="roi-West" class="roi-box absolute border-4 box-border cursor-move">
+                        <span class="roi-label absolute top-0 left-1 px-2 py-0.5 text-sm font-bold text-white bg-black/50 rounded-br-lg">West</span>
+                        <div class="resize-handle absolute bottom-0 right-0 w-4 h-4 bg-white/70 border-2 border-black rounded-full cursor-se-resize -mr-1 -mb-1"></div>
+                    </div>
+                    
+                    <!-- Bảng thống kê ĐÃ ĐƯỢC DI CHUYỂN ra ngoài -->
+
                 </div>
+                <p class="text-center text-gray-400 mt-4 max-w-[800px]">Kéo thả các góc để thay đổi kích thước, kéo thả vùng trung tâm để di chuyển.</p>
+            </div>
+
+            <!-- Cột 2: Bảng điều khiển và Thống kê -->
+            <div id="stats-panel" class="w-full max-w-[800px] lg:max-w-none lg:w-auto lg:flex-1 bg-gray-800 p-6 rounded-lg shadow-lg mx-auto lg:mx-0">
+                <h2 class="text-2xl font-bold mb-4 border-b border-gray-600 pb-2">Thống Kê</h2>
                 
-                <div class="controls">
-                    <button class="btn-save" onclick="saveZones()">💾 Lưu Vùng ROI</button>
-                    <button class="btn-reset" onclick="resetZones()">🔄 Đặt Lại</button>
+                <div id="stats-list" class="space-y-4 text-lg">
+                    
+                    <!-- Các mục thống kê sẽ được cập nhật màu sắc bởi JS -->
+                    <div id="stat-North" class="flex justify-between items-center font-bold p-3 rounded-md bg-gray-700/50">
+                        <span class="mr-4">North:</span>
+                        <span class="stat-count text-2xl">0</span>
+                    </div>
+                    
+                    <div id="stat-South" class="flex justify-between items-center font-bold p-3 rounded-md bg-gray-700/50">
+                        <span class="mr-4">South:</span>
+                        <span class="stat-count text-2xl">0</span>
+                    </div>
+                    
+                    <div id="stat-East" class="flex justify-between items-center font-bold p-3 rounded-md bg-gray-700/50">
+                        <span class="mr-4">East:</span>
+                        <span class="stat-count text-2xl">0</span>
+                    </div>
+                    
+                    <div id="stat-West" class="flex justify-between items-center font-bold p-3 rounded-md bg-gray-700/50">
+                        <span class="mr-4">West:</span>
+                        <span class="stat-count text-2xl">0</span>
+                    </div>
+                    
                 </div>
+            </div> <!-- End of stats-panel -->
 
-                <div class="info-box">
-                    <p><strong>📌 Hướng dẫn:</strong></p>
-                    <p>• Kéo vùng ROI để di chuyển</p>
-                    <p>• Kéo góc dưới phải để thay đổi kích thước</p>
-                    <p>• Nhấn "Lưu" để lưu cấu hình</p>
-                    <p>• ⚠️ Hệ thống tự động phát hiện tai nạn khi 2 xe va chạm</p>
-                </div>
-            </div>
+        </div> <!-- End of flex wrapper -->
 
-            <div class="stats-panel">
-                <h2>📊 Thống Kê Xe</h2>
-                <div class="stat-item" style="border-left: 4px solid #FF0000;">
-                    <h3>🔴 North</h3>
-                    <div class="stat-count" id="count-north">0</div>
-                </div>
-                <div class="stat-item" style="border-left: 4px solid #00FF00;">
-                    <h3>🟢 South</h3>
-                    <div class="stat-count" id="count-south">0</div>
-                </div>
-                <div class="stat-item" style="border-left: 4px solid #0000FF;">
-                    <h3>🔵 East</h3>
-                    <div class="stat-count" id="count-east">0</div>
-                </div>
-                <div class="stat-item" style="border-left: 4px solid #FFFF00;">
-                    <h3>🟡 West</h3>
-                    <div class="stat-count" id="count-west">0</div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <script>
-        let zones = {};
-        let draggingZone = null;
-        let resizingZone = null;
-        let startX, startY;
+        document.addEventListener("DOMContentLoaded", () => {
+            
+            // --- Biến toàn cục ---
+            let zones = {}; // Lưu trữ dữ liệu 4 zone
+            let activeBox = null; // Box đang được tương tác
+            let dragState = {
+                action: null, // 'drag' hoặc 'resize'
+                startX: 0,
+                startY: 0,
+                initialLeft: 0,
+                initialTop: 0,
+                initialWidth: 0,
+                initialHeight: 0
+            };
+            const videoContainer = document.getElementById("video-container");
 
-        // Load zones từ server
-        async function loadZones() {
-            const response = await fetch('/get_zones');
-            zones = await response.json();
-            renderZones();
-        }
+            // --- Hàm trợ giúp ---
 
-        // Render các zones lên giao diện
-        function renderZones() {
-            const editor = document.getElementById('zone-editor');
-            editor.innerHTML = '';
+            /**
+             * Chuyển đổi mã hex sang rgba
+             * @param {string} hex - Mã màu hex (e.g., "#FF0000")
+             * @param {number} alpha - Độ trong suốt (0.0 đến 1.0)
+             * @returns {string} - Chuỗi rgba
+             */
+            function hexToRgba(hex, alpha) {
+                let r = 0, g = 0, b = 0;
+                if (hex.length == 4) {
+                    r = "0x" + hex[1] + hex[1];
+                    g = "0x" + hex[2] + hex[2];
+                    b = "0x" + hex[3] + hex[3];
+                } else if (hex.length == 7) {
+                    r = "0x" + hex[1] + hex[2];
+                    g = "0x" + hex[3] + hex[4];
+                    b = "0x" + hex[5] + hex[6];
+                }
+                return `rgba(${+r}, ${+g}, ${+b}, ${alpha})`;
+            }
 
-            for (const [name, data] of Object.entries(zones)) {
-                const zone = document.createElement('div');
-                zone.className = 'zone';
-                zone.id = `zone-${name}`;
-                zone.style.left = data.x + 'px';
-                zone.style.top = data.y + 'px';
-                zone.style.width = data.width + 'px';
-                zone.style.height = data.height + 'px';
-                zone.style.borderColor = data.color;
-                zone.style.backgroundColor = data.color + '33';
+            // --- Cập nhật Giao diện (Render) ---
 
-                const label = document.createElement('div');
-                label.className = 'zone-label';
-                label.textContent = name;
-                label.style.color = data.color;
-                zone.appendChild(label);
-
-                const handle = document.createElement('div');
-                handle.className = 'resize-handle';
-                zone.appendChild(handle);
-
-                // Drag để di chuyển
-                zone.addEventListener('mousedown', (e) => {
-                    if (e.target.className === 'resize-handle') {
-                        resizingZone = name;
-                    } else {
-                        draggingZone = name;
+            /**
+             * Cập nhật vị trí và màu sắc của các box trên DOM
+             */
+            function renderZones() {
+                for (const [name, data] of Object.entries(zones)) {
+                    const el = document.getElementById(`roi-${name}`);
+                    const statEl = document.getElementById(`stat-${name}`);
+                    
+                    if (el) {
+                        el.style.left = `${data.x}px`;
+                        el.style.top = `${data.y}px`;
+                        el.style.width = `${data.width}px`;
+                        el.style.height = `${data.height}px`;
+                        el.style.borderColor = data.color;
+                        el.style.backgroundColor = hexToRgba(data.color, 0.2);
                     }
-                    startX = e.clientX;
-                    startY = e.clientY;
-                    e.preventDefault();
+                    if (statEl) {
+                        // Cập nhật màu chữ trên bảng thống kê
+                        statEl.style.color = data.color;
+                        // Bạn cũng có thể cập nhật viền nếu muốn
+                        // statEl.style.borderColor = data.color;
+                    }
+                }
+            }
+
+            /**
+             * Cập nhật số liệu thống kê xe
+             * @param {object} stats - Đối tượng thống kê (e.g., {North: 5, South: 2})
+             */
+            function renderStats(stats) {
+                for (const [name, count] of Object.entries(stats)) {
+                    const el = document.getElementById(`stat-${name}`);
+                    if (el) {
+                        el.querySelector(".stat-count").textContent = count;
+                    }
+                }
+            }
+
+            // --- API Calls ---
+
+            /**
+             * Lấy dữ liệu zones ban đầu từ server
+             */
+            async function fetchZones() {
+                try {
+                    const response = await fetch('/get_zones');
+                    if (!response.ok) throw new Error('Network error');
+                    zones = await response.json();
+                    renderZones();
+                } catch (error) {
+                    console.error("Lỗi khi tải zones:", error);
+                }
+            }
+
+            /**
+             * Gửi dữ liệu zones đã cập nhật lên server
+             */
+            async function saveZones() {
+                const zonesToSave = {};
+                for (const [name, data] of Object.entries(zones)) {
+                    zonesToSave[name] = {
+                        x: data.x,
+                        y: data.y,
+                        width: data.width,
+                        height: data.height,
+                        color: data.color
+                    };
+                }
+
+                try {
+                    await fetch('/update_zones', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(zonesToSave),
+                    });
+                } catch (error) {
+                    console.error("Lỗi khi cập nhật zones:", error);
+                }
+            }
+
+            /**
+             * Lấy thống kê xe cộ theo thời gian thực
+             */
+            async function updateStats() {
+                try {
+                    const response = await fetch('/get_stats');
+                    if (!response.ok) throw new Error('Network error');
+                    const stats = await response.json();
+                    renderStats(stats);
+                } catch (error) {
+                    console.error("Lỗi khi lấy thống kê:", error);
+                }
+            }
+
+            // --- Xử lý Tương tác (Drag & Resize) ---
+
+            /**
+             * Khi nhấn chuột xuống một ROI
+             * @param {MouseEvent} e - Sự kiện mousedown
+             */
+            function onMouseDown(e) {
+                if (e.button !== 0) return;
+                e.preventDefault();
+
+                activeBox = e.currentTarget;
+                
+                dragState.startX = e.clientX;
+                dragState.startY = e.clientY;
+                dragState.initialLeft = activeBox.offsetLeft;
+                dragState.initialTop = activeBox.offsetTop;
+                dragState.initialWidth = activeBox.offsetWidth;
+                dragState.initialHeight = activeBox.offsetHeight;
+
+                if (e.target.classList.contains('resize-handle')) {
+                    dragState.action = 'resize';
+                    document.body.style.cursor = 'se-resize';
+                } else {
+                    dragState.action = 'drag';
+                    document.body.style.cursor = 'move';
+                }
+
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            }
+
+            /**
+             * Khi di chuyển chuột
+             * @param {MouseEvent} e - Sự kiện mousemove
+             */
+            function onMouseMove(e) {
+                if (!activeBox) return;
+                e.preventDefault();
+
+                const dx = e.clientX - dragState.startX;
+                const dy = e.clientY - dragState.startY;
+
+                // Kích thước của container (cố định 800x600)
+                const containerWidth = videoContainer.offsetWidth;
+                const containerHeight = videoContainer.offsetHeight;
+
+                if (dragState.action === 'drag') {
+                    let newLeft = dragState.initialLeft + dx;
+                    let newTop = dragState.initialTop + dy;
+
+                    // Giới hạn di chuyển trong container
+                    newLeft = Math.max(0, Math.min(newLeft, containerWidth - activeBox.offsetWidth));
+                    newTop = Math.max(0, Math.min(newTop, containerHeight - activeBox.offsetHeight));
+                    
+                    activeBox.style.left = `${newLeft}px`;
+                    activeBox.style.top = `${newTop}px`;
+                
+                } else if (dragState.action === 'resize') {
+                    let newWidth = dragState.initialWidth + dx;
+                    let newHeight = dragState.initialHeight + dy;
+
+                    // Giới hạn kích thước
+                    newWidth = Math.max(20, newWidth);
+                    newHeight = Math.max(20, newHeight);
+
+                    // Đảm bảo không vượt ra ngoài container
+                    if (dragState.initialLeft + newWidth > containerWidth) {
+                        newWidth = containerWidth - dragState.initialLeft;
+                    }
+                    if (dragState.initialTop + newHeight > containerHeight) {
+                        newHeight = containerHeight - dragState.initialTop;
+                    }
+                    
+                    activeBox.style.width = `${newWidth}px`;
+                    activeBox.style.height = `${newHeight}px`;
+                }
+            }
+
+            /**
+             * Khi nhả chuột
+             * @param {MouseEvent} e - Sự kiện mouseup
+             */
+            function onMouseUp(e) {
+                if (!activeBox) return;
+
+                // Cập nhật đối tượng zones toàn cục
+                const name = activeBox.id.split('-')[1]; // "North"
+                if (zones[name]) {
+                    zones[name].x = activeBox.offsetLeft;
+                    zones[name].y = activeBox.offsetTop;
+                    zones[name].width = activeBox.offsetWidth;
+                    zones[name].height = activeBox.offsetHeight;
+                    
+                    // Gửi dữ liệu mới lên server
+                    saveZones();
+                }
+
+                // Reset trạng thái
+                activeBox = null;
+                dragState.action = null;
+                document.body.style.cursor = 'default';
+
+                // Xóa listeners toàn cục
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+            }
+
+
+            // --- Khởi tạo ---
+
+            function initialize() {
+                // Gắn listener mousedown cho tất cả các box
+                document.querySelectorAll(".roi-box").forEach(box => {
+                    box.addEventListener("mousedown", onMouseDown);
                 });
 
-                editor.appendChild(zone);
-            }
-        }
+                // Tải zones ban đầu
+                fetchZones();
 
-        // Mouse move handler
-        document.addEventListener('mousemove', (e) => {
-            if (draggingZone) {
-                const dx = e.clientX - startX;
-                const dy = e.clientY - startY;
-                
-                zones[draggingZone].x = Math.max(0, Math.min(800 - zones[draggingZone].width, zones[draggingZone].x + dx));
-                zones[draggingZone].y = Math.max(0, Math.min(600 - zones[draggingZone].height, zones[draggingZone].y + dy));
-                
-                startX = e.clientX;
-                startY = e.clientY;
-                renderZones();
-            } else if (resizingZone) {
-                const dx = e.clientX - startX;
-                const dy = e.clientY - startY;
-                
-                zones[resizingZone].width = Math.max(50, zones[resizingZone].width + dx);
-                zones[resizingZone].height = Math.max(50, zones[resizingZone].height + dy);
-                
-                startX = e.clientX;
-                startY = e.clientY;
-                renderZones();
+                // Bắt đầu cập nhật thống kê (mỗi 1.5 giây)
+                setInterval(updateStats, 1500);
             }
+
+            initialize();
         });
-
-        // Mouse up handler
-        document.addEventListener('mouseup', () => {
-            draggingZone = null;
-            resizingZone = null;
-        });
-
-        // Lưu zones
-        async function saveZones() {
-            const response = await fetch('/update_zones', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(zones)
-            });
-
-            if (response.ok) {
-                showAlert('✅ Đã lưu cấu hình vùng ROI!', 'success');
-            } else {
-                showAlert('❌ Lỗi khi lưu!', 'danger');
-            }
-        }
-
-        // Reset zones
-        function resetZones() {
-            loadZones();
-            showAlert('🔄 Đã đặt lại vùng ROI!', 'success');
-        }
-
-        // Show alert
-        function showAlert(message, type) {
-            const alert = document.createElement('div');
-            alert.className = `alert alert-${type}`;
-            alert.textContent = message;
-            document.body.appendChild(alert);
-
-            setTimeout(() => {
-                alert.remove();
-            }, 3000);
-        }
-
-        // Initialize
-        loadZones();
     </script>
 </body>
 </html>
