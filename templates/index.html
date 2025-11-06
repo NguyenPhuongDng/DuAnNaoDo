@@ -7,8 +7,10 @@
     <!-- Tải Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* CSS tùy chỉnh */
+        /* CSS tùy chỉnh cho màu sắc động của ROI */
+        /* Chúng ta sẽ dùng style inline từ JS, nhưng đây là một ví dụ */
         .roi-box {
+            /* transition: all 0.1s; */ /* Bỏ transition khi kéo thả để mượt hơn */
             -webkit-user-select: none; /* Ngăn chọn text khi kéo */
             -moz-user-select: none;
             -ms-user-select: none;
@@ -18,93 +20,45 @@
         #video-feed {
             pointer-events: none;
         }
-
-        /* Đảm bảo container 800x600 giữ đúng tỷ lệ nhưng có thể co lại trên màn hình nhỏ */
-        /* Tuy nhiên, logic JS hiện tại đang dựa trên 800x600 cố định */
-        /* Chúng ta sẽ giữ 800x600 và cho phép cuộn ngang trên di động */
-        #video-container {
-            width: 800px;
-            height: 600px;
-        }
     </style>
 </head>
-<body class="bg-gray-900 text-white min-h-screen font-sans p-4 sm:p-8">
+<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen font-sans">
 
-    <div class="max-w-screen-xl mx-auto"> <!-- Container rộng hơn -->
+    <div class="p-8">
         <h1 class="text-3xl font-bold text-center mb-6">Hệ Thống Giám Sát Giao Thông</h1>
 
-        <!-- Wrapper cho nội dung chính (Video và Thống kê) -->
-        <div class="flex flex-col lg:flex-row gap-6">
+        <!-- Vùng chứa video và các ROI -->
+        <div id="video-container" class="relative w-[800px] h-[600px] bg-black rounded-lg shadow-xl overflow-hidden mx-auto">
+            
+            <!-- Video Stream từ Flask -->
+            <img id="video-feed" src="/video_feed" alt="Video Stream" class="w-full h-full">
 
-            <!-- Cột 1: Video và ROIs -->
-            <!-- Container này PHẢI là 800x600 vì logic JS (offsetLeft/Top) và
-                 tọa độ zones.json được tính toán dựa trên kích thước cố định này -->
-            <div class="mx-auto lg:mx-0 shrink-0">
-                <div id="video-container" class="relative bg-black rounded-lg shadow-xl overflow-hidden">
-                    
-                    <!-- Video Stream từ Flask -->
-                    <img id="video-feed" src="/video_feed" alt="Video Stream" class="w-full h-full">
-
-                    <!-- Các vùng ROI (Regions of Interest) -->
-                    
-                    <div id="roi-North" class="roi-box absolute border-4 box-border cursor-move">
-                        <span class="roi-label absolute top-0 left-1 px-2 py-0.5 text-sm font-bold text-white bg-black/50 rounded-br-lg">North</span>
-                        <div class="resize-handle absolute bottom-0 right-0 w-4 h-4 bg-white/70 border-2 border-black rounded-full cursor-se-resize -mr-1 -mb-1"></div>
-                    </div>
-
-                    <div id="roi-South" class="roi-box absolute border-4 box-border cursor-move">
-                        <span class="roi-label absolute top-0 left-1 px-2 py-0.5 text-sm font-bold text-white bg-black/50 rounded-br-lg">South</span>
-                        <div class="resize-handle absolute bottom-0 right-0 w-4 h-4 bg-white/70 border-2 border-black rounded-full cursor-se-resize -mr-1 -mb-1"></div>
-                    </div>
-
-                    <div id="roi-East" class->="roi-box absolute border-4 box-border cursor-move">
-                        <span class="roi-label absolute top-0 left-1 px-2 py-0.5 text-sm font-bold text-white bg-black/50 rounded-br-lg">East</span>
-                        <div class="resize-handle absolute bottom-0 right-0 w-4 h-4 bg-white/70 border-2 border-black rounded-full cursor-se-resize -mr-1 -mb-1"></div>
-                    </div>
-
-                    <div id="roi-West" class="roi-box absolute border-4 box-border cursor-move">
-                        <span class="roi-label absolute top-0 left-1 px-2 py-0.5 text-sm font-bold text-white bg-black/50 rounded-br-lg">West</span>
-                        <div class="resize-handle absolute bottom-0 right-0 w-4 h-4 bg-white/70 border-2 border-black rounded-full cursor-se-resize -mr-1 -mb-1"></div>
-                    </div>
-                    
-                    <!-- Bảng thống kê ĐÃ ĐƯỢC DI CHUYỂN ra ngoài -->
-
-                </div>
-                <p class="text-center text-gray-400 mt-4 max-w-[800px]">Kéo thả các góc để thay đổi kích thước, kéo thả vùng trung tâm để di chuyển.</p>
+            <!-- Các vùng ROI (Regions of Interest) -->
+            <!-- Vị trí và màu sắc sẽ được cập nhật bởi JavaScript -->
+            
+            <div id="roi-North" class="roi-box absolute border-4 box-border cursor-move">
+                <span class="roi-label absolute top-0 left-1 px-2 py-0.5 text-sm font-bold text-white bg-black/50 rounded-br-lg">North</span>
+                <div class="resize-handle absolute bottom-0 right-0 w-4 h-4 bg-white/70 border-2 border-black rounded-full cursor-se-resize -mr-1 -mb-1"></div>
             </div>
 
-            <!-- Cột 2: Bảng điều khiển và Thống kê -->
-            <div id="stats-panel" class="w-full max-w-[800px] lg:max-w-none lg:w-auto lg:flex-1 bg-gray-800 p-6 rounded-lg shadow-lg mx-auto lg:mx-0">
-                <h2 class="text-2xl font-bold mb-4 border-b border-gray-600 pb-2">Thống Kê</h2>
-                
-                <div id="stats-list" class="space-y-4 text-lg">
-                    
-                    <!-- Các mục thống kê sẽ được cập nhật màu sắc bởi JS -->
-                    <div id="stat-North" class="flex justify-between items-center font-bold p-3 rounded-md bg-gray-700/50">
-                        <span class="mr-4">North:</span>
-                        <span class="stat-count text-2xl">0</span>
-                    </div>
-                    
-                    <div id="stat-South" class="flex justify-between items-center font-bold p-3 rounded-md bg-gray-700/50">
-                        <span class="mr-4">South:</span>
-                        <span class="stat-count text-2xl">0</span>
-                    </div>
-                    
-                    <div id="stat-East" class="flex justify-between items-center font-bold p-3 rounded-md bg-gray-700/50">
-                        <span class="mr-4">East:</span>
-                        <span class="stat-count text-2xl">0</span>
-                    </div>
-                    
-                    <div id="stat-West" class="flex justify-between items-center font-bold p-3 rounded-md bg-gray-700/50">
-                        <span class="mr-4">West:</span>
-                        <span class="stat-count text-2xl">0</span>
-                    </div>
-                    
-                </div>
-            </div> <!-- End of stats-panel -->
+            <div id="roi-South" class="roi-box absolute border-4 box-border cursor-move">
+                <span class="roi-label absolute top-0 left-1 px-2 py-0.5 text-sm font-bold text-white bg-black/50 rounded-br-lg">South</span>
+                <div class="resize-handle absolute bottom-0 right-0 w-4 h-4 bg-white/70 border-2 border-black rounded-full cursor-se-resize -mr-1 -mb-1"></div>
+            </div>
 
-        </div> <!-- End of flex wrapper -->
+            <div id="roi-East" class="roi-box absolute border-4 box-border cursor-move">
+                <span class="roi-label absolute top-0 left-1 px-2 py-0.5 text-sm font-bold text-white bg-black/50 rounded-br-lg">East</span>
+                <div class="resize-handle absolute bottom-0 right-0 w-4 h-4 bg-white/70 border-2 border-black rounded-full cursor-se-resize -mr-1 -mb-1"></div>
+            </div>
 
+            <div id="roi-West" class="roi-box absolute border-4 box-border cursor-move">
+                <span class="roi-label absolute top-0 left-1 px-2 py-0.5 text-sm font-bold text-white bg-black/50 rounded-br-lg">West</span>
+                <div class="resize-handle absolute bottom-0 right-0 w-4 h-4 bg-white/70 border-2 border-black rounded-full cursor-se-resize -mr-1 -mb-1"></div>
+            </div>
+
+            <!-- Bảng thống kê (Overlay) -->
+        </div>
+        <p class="text-center text-gray-400 mt-4">Kéo thả các góc để thay đổi kích thước, kéo thả vùng trung tâm để di chuyển.</p>
     </div>
 
     <script>
@@ -165,10 +119,7 @@
                         el.style.backgroundColor = hexToRgba(data.color, 0.2);
                     }
                     if (statEl) {
-                        // Cập nhật màu chữ trên bảng thống kê
                         statEl.style.color = data.color;
-                        // Bạn cũng có thể cập nhật viền nếu muốn
-                        // statEl.style.borderColor = data.color;
                     }
                 }
             }
@@ -206,6 +157,7 @@
              * Gửi dữ liệu zones đã cập nhật lên server
              */
             async function saveZones() {
+                // Chỉ gửi dữ liệu cần thiết, không gửi màu sắc (mặc dù backend có thể xử lý)
                 const zonesToSave = {};
                 for (const [name, data] of Object.entries(zones)) {
                     zonesToSave[name] = {
@@ -213,7 +165,7 @@
                         y: data.y,
                         width: data.width,
                         height: data.height,
-                        color: data.color
+                        color: data.color // Gửi cả màu sắc
                     };
                 }
 
@@ -251,18 +203,29 @@
              * @param {MouseEvent} e - Sự kiện mousedown
              */
             function onMouseDown(e) {
+                // Chỉ xử lý chuột trái
                 if (e.button !== 0) return;
+
+                // Ngăn các hành vi mặc định (như kéo thả ảnh)
                 e.preventDefault();
 
                 activeBox = e.currentTarget;
-                
+                const containerRect = videoContainer.getBoundingClientRect();
+
+                // Tính toán vị trí chuột tương đối với container
+                // e.clientX/Y là tuyệt đối trên viewport
+                // containerRect.left/top là vị trí của container
+                // Trừ đi để lấy vị trí tương đối
                 dragState.startX = e.clientX;
                 dragState.startY = e.clientY;
+
+                // Lưu trữ kích thước và vị trí ban đầu của box
                 dragState.initialLeft = activeBox.offsetLeft;
                 dragState.initialTop = activeBox.offsetTop;
                 dragState.initialWidth = activeBox.offsetWidth;
                 dragState.initialHeight = activeBox.offsetHeight;
 
+                // Kiểm tra xem đang kéo thả hay resize
                 if (e.target.classList.contains('resize-handle')) {
                     dragState.action = 'resize';
                     document.body.style.cursor = 'se-resize';
@@ -271,6 +234,7 @@
                     document.body.style.cursor = 'move';
                 }
 
+                // Thêm listeners toàn cục
                 document.addEventListener('mousemove', onMouseMove);
                 document.addEventListener('mouseup', onMouseUp);
             }
@@ -281,12 +245,12 @@
              */
             function onMouseMove(e) {
                 if (!activeBox) return;
+
                 e.preventDefault();
 
                 const dx = e.clientX - dragState.startX;
                 const dy = e.clientY - dragState.startY;
 
-                // Kích thước của container (cố định 800x600)
                 const containerWidth = videoContainer.offsetWidth;
                 const containerHeight = videoContainer.offsetHeight;
 
@@ -306,6 +270,7 @@
                     let newHeight = dragState.initialHeight + dy;
 
                     // Giới hạn kích thước
+                    // Đảm bảo không nhỏ hơn 20px
                     newWidth = Math.max(20, newWidth);
                     newHeight = Math.max(20, newHeight);
 
