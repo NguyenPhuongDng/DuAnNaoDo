@@ -1,0 +1,6 @@
+flask
+opencv-python
+numpy
+ultralytics
+werkzeug
+interactions==0.0.1
