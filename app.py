@@ -7,11 +7,15 @@ from datetime import datetime
 import numpy as np
 import threading
 import time
+import torch
 
 app = Flask(__name__)
 
 # Khởi tạo model YOLO
-model = YOLO("model/yolo11n.pt")
+drive = "cuda" if torch.cuda.is_available() else "cpu"
+print(f"Using device: {drive}")
+model = YOLO("model/yolo11s.pt")
+model.to(drive)
 
 # Danh sách các loại xe
 vehicles = [
@@ -48,7 +52,7 @@ accident_cooldown = 3  # Số giây trước khi có thể phát hiện lại ta
 # 0 = webcam
 # "path/to/video.mp4" = video file
 # "rtsp://..." = IP camera
-video_source = "TEST/vidieo/1900-151662242_small.mp4"  # Thay đổi theo đường dẫn video của bạn
+video_source = "TEST/vidieo/111534-691216378_small.mp4"  # Thay đổi theo đường dẫn video của bạn
 
 # Kiểm tra video source
 if isinstance(video_source, str) and not os.path.exists(video_source):
@@ -77,19 +81,23 @@ def check_bbox_in_zone(bbox, zone):
     return not (x2 < zx or x1 > zx + zw or y2 < zy or y1 > zy + zh)
 
 
-def check_collision(bbox1, bbox2, threshold=10):
-    """Kiểm tra 2 bounding box có chạm nhau không với threshold"""
-    x1_1, y1_1, x2_1, y2_1 = bbox1
-    x1_2, y1_2, x2_2, y2_2 = bbox2
-    
-    # Mở rộng bbox với threshold để phát hiện va chạm gần
-    x1_1 -= threshold
-    y1_1 -= threshold
-    x2_1 += threshold
-    y2_1 += threshold
-    
-    # Kiểm tra giao nhau
-    return not (x2_1 < x1_2 or x1_1 > x2_2 or y2_1 < y1_2 or y1_1 > y2_2)
+def check_collision(bbox1, bbox2, iou_threshold=0.05):
+    """Kiểm tra 2 bbox có giao nhau thực sự dựa trên IoU"""
+    x1 = max(bbox1[0], bbox2[0])
+    y1 = max(bbox1[1], bbox2[1])
+    x2 = min(bbox1[2], bbox2[2])
+    y2 = min(bbox1[3], bbox2[3])
+
+    inter_area = max(0, x2 - x1) * max(0, y2 - y1)
+    if inter_area == 0:
+        return False
+
+    area1 = (bbox1[2] - bbox1[0]) * (bbox1[3] - bbox1[1])
+    area2 = (bbox2[2] - bbox2[0]) * (bbox2[3] - bbox2[1])
+    iou = inter_area / float(area1 + area2 - inter_area)
+
+    return iou > iou_threshold
+
 
 
 def get_accident_key(bbox1, bbox2):
@@ -118,39 +126,27 @@ def clean_old_accidents():
 
 
 def save_accident_image(frame, bbox1, bbox2):
-    """Lưu ảnh tai nạn"""
+    """Lưu toàn bộ frame khi phát hiện tai nạn"""
     accident_key = get_accident_key(bbox1, bbox2)
     current_time = time.time()
-    
+
     # Kiểm tra cooldown
     if accident_key in detected_accidents:
         if current_time - detected_accidents[accident_key] < accident_cooldown:
             return None
-    
+
     detected_accidents[accident_key] = current_time
-    
-    # Crop vùng chứa 2 bounding box
-    x_min = int(min(bbox1[0], bbox2[0]))
-    y_min = int(min(bbox1[1], bbox2[1]))
-    x_max = int(max(bbox1[2], bbox2[2]))
-    y_max = int(max(bbox1[3], bbox2[3]))
-    
-    # Mở rộng vùng crop thêm 30 pixel
-    x_min = max(0, x_min - 30)
-    y_min = max(0, y_min - 30)
-    x_max = min(frame.shape[1], x_max + 30)
-    y_max = min(frame.shape[0], y_max + 30)
-    
-    cropped = frame[y_min:y_max, x_min:x_max]
-    
+
+    # Lưu toàn bộ frame
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     filename = f"accident_images/accident_{timestamp}.jpg"
-    cv2.imwrite(filename, cropped)
-    
+    cv2.imwrite(filename, frame)
+
     # Cleanup
     clean_old_accidents()
-    
+
     return filename
+
 
 
 def process_video():
@@ -187,7 +183,8 @@ def process_video():
         frame_count += 1
         
         # Chạy YOLO detection
-        results = model(frame, verbose=False, conf=0.3)
+        results = model(frame, verbose=False, conf=0.5)
+
         
         # Lấy danh sách các bounding box của xe
         vehicle_boxes = []
@@ -217,32 +214,27 @@ def process_video():
                             zone_counts[zone_name] += 1
         
         # Kiểm tra va chạm giữa các xe
-        for i in range(len(vehicle_boxes)):
-            for j in range(i + 1, len(vehicle_boxes)):
-                if check_collision(vehicle_boxes[i], vehicle_boxes[j]):
-                    accident_detected = True
-                    filename = save_accident_image(frame, vehicle_boxes[i], vehicle_boxes[j])
-                    
-                    if filename:
-                        print(f"⚠️ ACCIDENT DETECTED! Saved to {filename}")
-                    
-                    # Vẽ cảnh báo trên frame
-                    cv2.putText(frame, "ACCIDENT DETECTED!", 
-                               (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 
-                               1.2, (0, 0, 255), 3)
-                    
-                    # Vẽ X đỏ quanh vùng va chạm
-                    x_center = int((vehicle_boxes[i][0] + vehicle_boxes[j][0] + 
-                                   vehicle_boxes[i][2] + vehicle_boxes[j][2]) / 4)
-                    y_center = int((vehicle_boxes[i][1] + vehicle_boxes[j][1] + 
-                                   vehicle_boxes[i][3] + vehicle_boxes[j][3]) / 4)
-                    
-                    # Vẽ dấu X
-                    cv2.line(frame, (x_center - 40, y_center - 40), 
-                            (x_center + 40, y_center + 40), (0, 0, 255), 4)
-                    cv2.line(frame, (x_center + 40, y_center - 40), 
-                            (x_center - 40, y_center + 40), (0, 0, 255), 4)
-                    cv2.circle(frame, (x_center, y_center), 60, (0, 0, 255), 3)
+        if len(vehicle_boxes) >= 2:
+            for i in range(len(vehicle_boxes)):
+                for j in range(i + 1, len(vehicle_boxes)):
+                    if check_collision(vehicle_boxes[i], vehicle_boxes[j]):
+                        accident_detected = True
+                        filename = save_accident_image(frame, vehicle_boxes[i], vehicle_boxes[j])
+
+                        if filename:
+                            print(f"⚠️ ACCIDENT DETECTED! Saved full frame to {filename}")
+
+                        # Vẽ cảnh báo trên frame
+                        cv2.putText(frame, "ACCIDENT DETECTED!",
+                                    (20, 50), cv2.FONT_HERSHEY_SIMPLEX,
+                                    1.2, (0, 0, 255), 3)
+
+                        # Vẽ bounding box đỏ quanh 2 xe va chạm
+                        for box in [vehicle_boxes[i], vehicle_boxes[j]]:
+                            x1, y1, x2, y2 = box
+                            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 3)
+
+
         
         # Vẽ các zones
         for zone_name, zone_data in zones.items():
