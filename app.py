@@ -14,7 +14,7 @@ app = Flask(__name__)
 # Khởi tạo model YOLO
 drive = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using device: {drive}")
-model = YOLO("model/yolo11s.pt")
+model = YOLO("model/yolo11n.pt")
 model.to(drive)
 
 # Danh sách các loại xe
@@ -52,7 +52,7 @@ accident_cooldown = 3  # Số giây trước khi có thể phát hiện lại ta
 # 0 = webcam
 # "path/to/video.mp4" = video file
 # "rtsp://..." = IP camera
-video_source = "TEST/vidieo/111534-691216378_small.mp4"  # Thay đổi theo đường dẫn video của bạn
+video_source = "TEST/vidieo/111534-691216378_small.mp4" # Thay đổi theo đường dẫn video của bạn
 
 # Kiểm tra video source
 if isinstance(video_source, str) and not os.path.exists(video_source):
