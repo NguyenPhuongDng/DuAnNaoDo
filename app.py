@@ -80,8 +80,58 @@ def check_bbox_in_zone(bbox, zone):
     # Kiểm tra giao nhau
     return not (x2 < zx or x1 > zx + zw or y2 < zy or y1 > zy + zh)
 
+# --- Helper: IoU cơ bản ---
+def iou(b1, b2):
+    """Return IoU of two boxes [x1,y1,x2,y2]"""
+    xA = max(b1[0], b2[0])
+    yA = max(b1[1], b2[1])
+    xB = min(b1[2], b2[2])
+    yB = min(b1[3], b2[3])
 
-def check_collision(bbox1, bbox2, iou_threshold=0.05):
+    interW = max(0, xB - xA)
+    interH = max(0, yB - yA)
+    interArea = interW * interH
+    if interArea == 0:
+        return 0.0
+
+    area1 = max(0, (b1[2] - b1[0])) * max(0, (b1[3] - b1[1]))
+    area2 = max(0, (b2[2] - b2[0])) * max(0, (b2[3] - b2[1]))
+    union = area1 + area2 - interArea
+    if union <= 0:
+        return 0.0
+    return interArea / union
+
+# --- Dedupe overlapping boxes (simple NMS-like by area) ---
+def deduplicate_boxes(boxes, iou_thresh=0.85):
+    """
+    Loại bỏ bbox trùng nhau: giữ box có diện tích lớn hơn trước.
+    iou_thresh: nếu IoU giữa 2 box > iou_thresh -> coi là trùng và bỏ box nhỏ hơn.
+    Trả về danh sách box đã lọc.
+    """
+    if not boxes:
+        return []
+
+    # compute area and sort by area descending
+    boxes_with_area = []
+    for b in boxes:
+        w = max(0, b[2] - b[0])
+        h = max(0, b[3] - b[1])
+        area = w * h
+        boxes_with_area.append((b, area))
+    boxes_with_area.sort(key=lambda x: x[1], reverse=True)
+
+    kept = []
+    for b, area in boxes_with_area:
+        should_keep = True
+        for kb in kept:
+            if iou(b, kb) > iou_thresh:
+                should_keep = False
+                break
+        if should_keep:
+            kept.append(b)
+    return kept
+
+def check_collision(bbox1, bbox2, iou_threshold=0.25):
     """Kiểm tra 2 bbox có giao nhau thực sự dựa trên IoU"""
     x1 = max(bbox1[0], bbox2[0])
     y1 = max(bbox1[1], bbox2[1])
@@ -101,11 +151,8 @@ def check_collision(bbox1, bbox2, iou_threshold=0.05):
 
 
 def get_accident_key(bbox1, bbox2):
-    """Tạo key duy nhất cho cặp bounding box"""
-    # Sắp xếp để đảm bảo (bbox1, bbox2) và (bbox2, bbox1) tạo cùng key
-    box1_center = ((bbox1[0] + bbox1[2]) // 2, (bbox1[1] + bbox1[3]) // 2)
-    box2_center = ((bbox2[0] + bbox2[2]) // 2, (bbox2[1] + bbox2[3]) // 2)
-    
+    box1_center = (int((bbox1[0] + bbox1[2]) / 2), int((bbox1[1] + bbox1[3]) / 2))
+    box2_center = (int((bbox2[0] + bbox2[2]) / 2), int((bbox2[1] + bbox2[3]) / 2))
     if box1_center < box2_center:
         return f"{box1_center[0]}_{box1_center[1]}_{box2_center[0]}_{box2_center[1]}"
     else:
@@ -183,7 +230,7 @@ def process_video():
         frame_count += 1
         
         # Chạy YOLO detection
-        results = model(frame, verbose=False, conf=0.5)
+        results = model(frame, verbose=False, conf=0.7)
 
         
         # Lấy danh sách các bounding box của xe
@@ -214,12 +261,20 @@ def process_video():
                             zone_counts[zone_name] += 1
         
         # Kiểm tra va chạm giữa các xe
+        # Loại trùng bbox (ngăn trường hợp cùng 1 xe có nhiều bbox gây false positive)
+        vehicle_boxes = deduplicate_boxes(vehicle_boxes, iou_thresh=0.85)
+
+        # Kiểm tra va chạm giữa các xe (chỉ khi còn >=2 box khác nhau)
         if len(vehicle_boxes) >= 2:
             for i in range(len(vehicle_boxes)):
                 for j in range(i + 1, len(vehicle_boxes)):
-                    if check_collision(vehicle_boxes[i], vehicle_boxes[j]):
+                    # optional: đảm bảo box có kích thước hợp lệ
+                    b1, b2 = vehicle_boxes[i], vehicle_boxes[j]
+                    if (b1[2] <= b1[0] or b1[3] <= b1[1] or b2[2] <= b2[0] or b2[3] <= b2[1]):
+                        continue
+                    if check_collision(b1, b2, iou_threshold=0.25):
                         accident_detected = True
-                        filename = save_accident_image(frame, vehicle_boxes[i], vehicle_boxes[j])
+                        filename = save_accident_image(frame, b1, b2)
 
                         if filename:
                             print(f"⚠️ ACCIDENT DETECTED! Saved full frame to {filename}")
