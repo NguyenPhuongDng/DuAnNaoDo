@@ -14,7 +14,7 @@ app = Flask(__name__)
 # Khởi tạo model YOLO
 drive = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using device: {drive}")
-model = YOLO("model/yolo11n.pt")
+model = YOLO("model/best.pt")
 model.to(drive)
 
 # Danh sách các loại xe
